@@ -1,0 +1,191 @@
+version: '3.1'
+services:
+
+  mongo-rs0-1:
+    image: "mongo-start"
+    build: ./mongo-rs0-1
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./mongo-rs0-1/data:/data/db
+    depends_on:
+      - "mongo-rs0-2"
+      - "mongo-rs0-3"
+
+  mongo-rs0-2:
+    image: "mongo"
+    command: --replSet rs0 --oplogSize 128
+    ports:
+      - "27018:27017"
+    volumes:
+      - ./mongo-rs0-2/data:/data/db
+
+  mongo-rs0-3:
+    image: "mongo"
+    command: --replSet rs0 --oplogSize 128
+    ports:
+      - "27019:27017"
+    volumes:
+      - ./mongo-rs0-3/data:/data/db
+
+  setup-rs:
+    image: "setup-rs"
+    build: ./setup
+    depends_on:
+      - "mongo-rs0-1"
+
+  adminmongo:
+    image: "mrvautin/adminmongo"
+    ports:
+      - "1234:1234"
+    environment:
+      - HOST=0.0.0.0
+      
+  eureka-server:
+    container_name: eureka-server
+    image: docker12051981/service-registry:0.0.1-compose
+    ports:
+      - "8761:8761"
+    environment:
+      eureka.instance.hostname: eureka-server
+      eureka.client.serviceUrl.defaultZone: http://eureka-server:8761/eureka
+
+  config-server:
+    container_name: config-server
+    image: docker12051981/config-server-service:0.0.1-compose
+    ports:
+      - "9296:9296"
+    depends_on:
+      - eureka-server
+    environment:
+      server.port: 9296
+      eureka.client.serviceUrl.defaultZone: http://eureka-server:8761/eureka
+
+  gateway-service:
+    container_name: gateway-service
+    image: docker12051981/gateway-service:0.0.1-compose
+    ports:
+      - "9191:9191"
+    depends_on:
+      - eureka-server
+      - config-server
+    environment:
+      server.port: 9191
+      eureka.client.serviceUrl.defaultZone: http://eureka-server:8761/eureka
+
+  structure-service:
+    container_name: structure-service
+    image: docker12051981/structure-service:0.0.1-compose
+    ports:
+      - "9001:9001"
+    links:
+      - mongo-rs0-1
+      - eureka-server
+      - config-server
+      - gateway-service
+    depends_on:
+      - mongo-rs0-1
+      - eureka-server
+      - config-server
+      - gateway-service
+      
+    environment:
+      server.port: 9001
+      eureka.client.serviceUrl.defaultZone: http://eureka-server:8761/eureka
+   
+  fonctionnaire-service:
+    container_name: fonctionnaire-service
+    image: docker12051981/fonctionnaire-service:0.0.1-compose
+    ports:
+      - "9002:9002"
+    links:
+      - mongo-rs0-1
+      - eureka-server
+      - config-server
+      - gateway-service
+    depends_on:
+      - mongo-rs0-1
+      - eureka-server
+      - config-server
+      - gateway-service
+    environment:
+      server.port: 9002
+      eureka.client.serviceUrl.defaultZone: http://eureka-server:8761/eureka
+      
+  login-service:
+    container_name: login-service
+    image: docker12051981/login-service:0.0.1-compose
+    ports:
+      - "9004:9004"
+    links:
+      - mongo-rs0-1
+      - eureka-server
+      - config-server
+      - gateway-service
+    depends_on:
+      - mongo-rs0-1
+      - eureka-server
+      - config-server
+      - gateway-service
+    environment:
+      server.port: 9004
+      eureka.client.serviceUrl.defaultZone: http://eureka-server:8761/eureka
+    
+  user-service:
+    container_name: user-service
+    image: docker12051981/user-service:0.0.1-compose
+    ports:
+      - "9003:9003"
+    links:
+      - mongo-rs0-1
+      - eureka-server
+      - config-server
+      - gateway-service
+    depends_on:
+      - mongo-rs0-1
+      - eureka-server
+      - config-server
+      - gateway-service
+    environment:
+      server.port: 9003
+      eureka.client.serviceUrl.defaultZone: http://eureka-server:8761/eureka
+      
+  contrat-service:
+    container_name: contrat-service
+    image: docker12051981/contrat-service:0.0.1-compose
+    ports:
+      - "9005:9005"
+    links:
+      - mongo-rs0-1
+      - eureka-server
+      - config-server
+      - gateway-service
+    depends_on:
+      - mongo-rs0-1
+      - eureka-server
+      - config-server
+      - gateway-service
+    environment:
+      server.port: 9005
+      eureka.client.serviceUrl.defaultZone: http://eureka-server:8761/eureka
+      
+  fronte:
+    container_name: fronte
+    image: docker12051981/architectui-angular-free:compose
+    ports:
+      - "4200:4200"
+    links:
+      - gateway-service
+      - structure-service
+      - fonctionnaire-service
+      - login-service
+      - user-service
+      - contrat-service
+
+    depends_on:
+      - gateway-service
+      - structure-service
+      - fonctionnaire-service
+      - login-service
+      - user-service
+      - contrat-service
